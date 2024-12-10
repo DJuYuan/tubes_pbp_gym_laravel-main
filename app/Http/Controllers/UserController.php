@@ -167,11 +167,11 @@ class UserController extends Controller
 //     }
 // }
 
-    public function update(Request $request, $id)
+    public function updateData(Request $request, $id)
     {
         $user = Auth::user();
 
-        // Pastikan hanya pemilik akun yang bisa mengupdate
+        // Pastikan hanya pemilik akun yang dapat mengupdate data
         if ($user->id != $id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -181,7 +181,6 @@ class UserController extends Controller
             'username' => 'required|string|max:255',
             'berat' => 'required|integer',
             'tinggi' => 'required|integer',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Validasi foto profil
         ]);
 
         if ($validator->fails()) {
@@ -199,29 +198,63 @@ class UserController extends Controller
             $user->berat = $request->berat;
             $user->tinggi = $request->tinggi;
 
-            // Jika ada foto profil baru, simpan dan perbarui
-            if ($request->hasFile('foto')) {
-                // Simpan gambar di folder storage
-                $imagePath = $request->file('foto')->store('fotos', 'public');
-                
-                // Hapus foto lama jika ada
-                if ($user->foto) {
-                    \Storage::disk('public')->delete($user->foto);
-                }
-
-                $user->foto = $imagePath;
-            }
-
             // Simpan perubahan
             $user->save();
 
-            return response()->json(['message' => 'Profile updated successfully', 'user' => $user], 200);
+            return response()->json(['message' => 'User data updated successfully', 'user' => $user], 200);
         } catch (\Exception $e) {
-            \Log::error('Error updating user profile: ' . $e->getMessage());
-            return response()->json(['message' => 'Error updating profile'], 500);
+            \Log::error('Error updating user data: ' . $e->getMessage());
+            return response()->json(['message' => 'Error updating user data'], 500);
         }
     }
 
+    // Update foto profil pengguna
+    public function updateFoto(Request $request, $id)
+    {
+        $user = Auth::user();
+    
+        // Pastikan hanya pemilik akun yang dapat mengupdate foto
+        if ($user->id != $id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+    
+        // Validasi foto
+        $validator = Validator::make($request->all(), [
+            'foto' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+    
+        try {
+            $user = User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+    
+            // Simpan gambar di folder 'fotos' dalam storage
+            $imagePath = $request->file('foto')->store('fotos', 'public');  // 'public' akan menyimpan gambar di storage/app/public
+    
+            // Hapus foto lama jika ada
+            if ($user->foto) {
+                \Storage::disk('public')->delete($user->foto);
+            }
+    
+            // Update foto di database
+            $user->foto = $imagePath;
+            $user->save();
+    
+            // Mengembalikan response dengan URL gambar yang dapat diakses secara publik
+            $photoUrl = asset('storage/' . $imagePath);
+    
+            return response()->json(['message' => 'Profile photo updated successfully', 'photo' => $photoUrl], 200);
+        } catch (\Exception $e) {
+            \Log::error('Error updating profile photo: ' . $e->getMessage());
+            return response()->json(['message' => 'Error updating profile photo'], 500);
+        }
+    }
+    
     // Delete user
     public function destroy(string $id)
     {

@@ -26,4 +26,5 @@ Route::get('/user', function (Request $request) {
 
 })->middleware('auth:sanctum');
 // Route::middleware('auth:api')->put('/user/{id}', [UserController::class, 'update']);
-Route::middleware('auth:sanctum')->put('/user/{id}', [UserController::class, 'update']);
+Route::middleware('auth:sanctum')->put('/user/{id}', [UserController::class, 'updateData']);
+Route::middleware('auth:sanctum')->post('/user/foto/{id}', [UserController::class, 'updateFoto']);
