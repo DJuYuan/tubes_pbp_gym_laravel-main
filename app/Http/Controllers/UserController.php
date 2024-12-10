@@ -129,45 +129,98 @@ class UserController extends Controller
     //     }
     // }
 
+//     public function update(Request $request, $id)
+// {
+//     $user = Auth::user();
+
+//     // Verifikasi user yang mengirimkan request
+//     if ($user->id != $id) {
+//         return response()->json(['message' => 'Unauthorized'], 403);
+//     }
+
+//     $validator = Validator::make($request->all(), [
+//         'username' => 'required|string|max:255',
+//         'berat' => 'required|integer',
+//         'tinggi' => 'required|integer',
+//     ]);
+
+//     if ($validator->fails()) {
+//         return response()->json(['errors' => $validator->errors()], 422);
+//     }
+
+//     try {
+//         $user = User::find($id);
+//         if (!$user) {
+//             return response()->json(['message' => 'User not found'], 404);
+//         }
+
+//         // Update tanpa gambar untuk testing
+//         $user->username = $request->username;
+//         $user->berat = $request->berat;
+//         $user->tinggi = $request->tinggi;
+//         $user->save();
+
+//         return response()->json(['message' => 'Profile updated successfully', 'user' => $user], 200);
+//     } catch (\Exception $e) {
+//         \Log::error('Error updating user profile: ' . $e->getMessage());
+//         return response()->json(['message' => 'Error updating profile'], 500);
+//     }
+// }
+
     public function update(Request $request, $id)
-{
-    $user = Auth::user();
+    {
+        $user = Auth::user();
 
-    // Verifikasi user yang mengirimkan request
-    if ($user->id != $id) {
-        return response()->json(['message' => 'Unauthorized'], 403);
-    }
-
-    $validator = Validator::make($request->all(), [
-        'username' => 'required|string|max:255',
-        'berat' => 'required|integer',
-        'tinggi' => 'required|integer',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json(['errors' => $validator->errors()], 422);
-    }
-
-    try {
-        $user = User::find($id);
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+        // Pastikan hanya pemilik akun yang bisa mengupdate
+        if ($user->id != $id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // Update tanpa gambar untuk testing
-        $user->username = $request->username;
-        $user->berat = $request->berat;
-        $user->tinggi = $request->tinggi;
-        $user->save();
+        // Validasi input
+        $validator = Validator::make($request->all(), [
+            'username' => 'required|string|max:255',
+            'berat' => 'required|integer',
+            'tinggi' => 'required|integer',
+            'foto' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Validasi foto profil
+        ]);
 
-        return response()->json(['message' => 'Profile updated successfully', 'user' => $user], 200);
-    } catch (\Exception $e) {
-        \Log::error('Error updating user profile: ' . $e->getMessage());
-        return response()->json(['message' => 'Error updating profile'], 500);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $user = User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            // Update data pengguna
+            $user->username = $request->username;
+            $user->berat = $request->berat;
+            $user->tinggi = $request->tinggi;
+
+            // Jika ada foto profil baru, simpan dan perbarui
+            if ($request->hasFile('foto')) {
+                // Simpan gambar di folder storage
+                $imagePath = $request->file('foto')->store('fotos', 'public');
+                
+                // Hapus foto lama jika ada
+                if ($user->foto) {
+                    \Storage::disk('public')->delete($user->foto);
+                }
+
+                $user->foto = $imagePath;
+            }
+
+            // Simpan perubahan
+            $user->save();
+
+            return response()->json(['message' => 'Profile updated successfully', 'user' => $user], 200);
+        } catch (\Exception $e) {
+            \Log::error('Error updating user profile: ' . $e->getMessage());
+            return response()->json(['message' => 'Error updating profile'], 500);
+        }
     }
-}
-
-
 
     // Delete user
     public function destroy(string $id)
