@@ -28,3 +28,4 @@ Route::get('/user', function (Request $request) {
 // Route::middleware('auth:api')->put('/user/{id}', [UserController::class, 'update']);
 Route::middleware('auth:sanctum')->put('/user/{id}', [UserController::class, 'updateData']);
 Route::middleware('auth:sanctum')->post('/user/foto/{id}', [UserController::class, 'updateFoto']);
+Route::middleware('auth:sanctum')->delete('/user/foto/{id}', [UserController::class, 'deleteFoto']);

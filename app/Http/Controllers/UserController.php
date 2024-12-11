@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -212,46 +213,77 @@ class UserController extends Controller
     public function updateFoto(Request $request, $id)
     {
         $user = Auth::user();
-    
+
         // Pastikan hanya pemilik akun yang dapat mengupdate foto
         if ($user->id != $id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-    
+
         // Validasi foto
         $validator = Validator::make($request->all(), [
             'foto' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
-    
+
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
-    
+
         try {
             $user = User::find($id);
             if (!$user) {
                 return response()->json(['message' => 'User not found'], 404);
             }
-    
-            // Simpan gambar di folder 'fotos' dalam storage
-            $imagePath = $request->file('foto')->store('fotos', 'public');  // 'public' akan menyimpan gambar di storage/app/public
-    
+
+            // Ambil nama file asli
+            $file = $request->file('foto');
+            $originalFileName = $file->getClientOriginalName();  // Nama file asli yang diupload
+
+            // Tentukan path untuk menyimpan file, menggunakan nama asli
+            $imagePath = $file->storeAs('fotos', $originalFileName, 'public');  // 'public' akan menyimpan gambar di storage/app/public
+
             // Hapus foto lama jika ada
             if ($user->foto) {
-                \Storage::disk('public')->delete($user->foto);
+                Storage::disk('public')->delete($user->foto);
             }
-    
+
             // Update foto di database
             $user->foto = $imagePath;
             $user->save();
-    
+
             // Mengembalikan response dengan URL gambar yang dapat diakses secara publik
             $photoUrl = asset('storage/' . $imagePath);
-    
+
             return response()->json(['message' => 'Profile photo updated successfully', 'photo' => $photoUrl], 200);
         } catch (\Exception $e) {
-            \Log::error('Error updating profile photo: ' . $e->getMessage());
             return response()->json(['message' => 'Error updating profile photo'], 500);
+        }
+    }
+
+    public function deleteFoto(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        // Pastikan hanya pemilik akun yang dapat menghapus foto
+        if ($user->id != $id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        try {
+            $user = User::find($id);
+            if (!$user || !$user->foto) {
+                return response()->json(['message' => 'Photo not found'], 404);
+            }
+
+            // Hapus foto dari storage
+            Storage::disk('public')->delete($user->foto);
+
+            // Hapus referensi foto di database
+            $user->foto = null;
+            $user->save();
+
+            return response()->json(['message' => 'Profile photo deleted successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error deleting profile photo'], 500);
         }
     }
     
